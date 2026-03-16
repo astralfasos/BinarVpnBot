@@ -55,7 +55,6 @@ trojan://kkzh2prsyr2ik47as615@64.94.95.118:57142?type=tcp&security=tls&sni=64.94
 # ================== РАБОТА С JSON-ФАЙЛОМ ==================
 
 def load_data() -> dict:
-    """Загружает данные из JSON-файла. Если файла нет, возвращает пустой словарь."""
     try:
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -63,11 +62,9 @@ def load_data() -> dict:
         return {}
 
 def save_data(data: dict):
-    """Сохраняет данные в JSON-файл."""
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False, default=str)
 
-# Глобальный словарь с данными пользователей
 user_data = defaultdict(lambda: {
     'balance': 0,
     'subscription_until': None,
@@ -75,13 +72,11 @@ user_data = defaultdict(lambda: {
     'registered': datetime.datetime.now().isoformat()
 })
 
-# Загружаем существующие данные при старте
 loaded = load_data()
 for user_id_str, data in loaded.items():
     user_data[int(user_id_str)] = data
 
 def save_user_data():
-    """Сохраняет текущий user_data в файл."""
     save_data(dict(user_data))
 
 # ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
@@ -131,8 +126,7 @@ dp = Dispatcher()
 @dp.message(CommandStart())
 async def start_command(message: Message):
     user_id = message.from_user.id
-    # Убедимся, что запись существует
-    _ = user_data[user_id]
+    _ = user_data[user_id]  # убеждаемся, что запись существует
     save_user_data()
 
     welcome_text = (
@@ -293,9 +287,6 @@ async def connect_device_callback(callback: CallbackQuery):
         )
         return
 
-    # Ссылка на этот же сервер (получим из переменной окружения или используем относительную)
-    # На Railway мы будем использовать домен, который присвоен сервису.
-    # В идеале нужно задать BASE_URL через переменную окружения.
     base_url = os.environ.get("BASE_URL", "https://your-app.railway.app")
     sub_url = f"{base_url}/sub/{user_id}"
 
@@ -322,6 +313,14 @@ async def back_to_start_callback(callback: CallbackQuery):
 # ================== FASTAPI ПРИЛОЖЕНИЕ ==================
 fastapi_app = FastAPI()
 
+@fastapi_app.get("/")
+async def root():
+    return {"message": "BinarVPN subscription server is running"}
+
+@fastapi_app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 @fastapi_app.get("/sub/{user_id}")
 async def get_subscription(user_id: int):
     active, _ = is_subscription_active(user_id)
@@ -332,27 +331,27 @@ async def get_subscription(user_id: int):
         raise HTTPException(status_code=404, detail="Subscription not found")
     return sub_base64
 
-@fastapi_app.get("/health")
-async def health():
-    return {"status": "ok"}
-
 # ================== ЗАПУСК ОБОИХ СЕРВИСОВ ==================
 async def run_bot():
+    print("Starting bot polling...")
     await dp.start_polling(bot)
 
 async def run_uvicorn():
+    port = int(os.environ.get("PORT", 8080))
+    print(f"Starting Uvicorn on port {port}...")
     config = uvicorn.Config(
         fastapi_app,
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000)),
+        port=port,
         log_level="info"
     )
     server = uvicorn.Server(config)
     await server.serve()
 
 async def main():
-    # Запускаем бота и веб-сервер параллельно
+    print("Main function started")
     await asyncio.gather(run_bot(), run_uvicorn())
 
 if __name__ == "__main__":
+    print("Starting application...")
     asyncio.run(main())
