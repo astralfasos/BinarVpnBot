@@ -17,8 +17,8 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram import F
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse   # <--- ВАЖНО: импорт здесь!
+# Импорты FastAPI
+from fastapi import FastAPI, HTTPException, Response  # <--- ВАЖНО: добавлен импорт Response
 import uvicorn
 
 # ================== НАСТРОЙКИ ==================
@@ -322,7 +322,8 @@ async def root():
 async def health():
     return {"status": "ok"}
 
-@fastapi_app.get("/sub/{user_id}", response_class=PlainTextResponse)
+# ================== ИСПРАВЛЕННЫЙ ЭНДПОИНТ ==================
+@fastapi_app.get("/sub/{user_id}")
 async def get_subscription(user_id: int):
     active, _ = is_subscription_active(user_id)
     if not active:
@@ -330,7 +331,10 @@ async def get_subscription(user_id: int):
     sub_base64 = generate_subscription_file(user_id)
     if sub_base64 is None:
         raise HTTPException(status_code=404, detail="Subscription not found")
-    return sub_base64
+
+    # ВАЖНО: Возвращаем объект Response с правильным media_type
+    # Это гарантирует, что клиент (V2Ray, Happ) получит заголовок Content-Type: text/plain
+    return Response(content=sub_base64, media_type="text/plain; charset=utf-8")
 
 # ================== ЗАПУСК ОБОИХ СЕРВИСОВ ==================
 async def run_bot():
