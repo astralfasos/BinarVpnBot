@@ -311,6 +311,7 @@ async def back_to_start_callback(callback: CallbackQuery):
     await callback.answer()
 
 # ================== FASTAPI ПРИЛОЖЕНИЕ ==================
+from fastapi.responses import PlainTextResponse  # <--- ДОБАВЬТЕ ЭТУ СТРОКУ ВВЕРХУ ФАЙЛА, РЯДОМ С ДРУГИМИ ИМПОРТАМИ
 fastapi_app = FastAPI()
 
 @fastapi_app.get("/")
@@ -321,7 +322,7 @@ async def root():
 async def health():
     return {"status": "ok"}
 
-@fastapi_app.get("/sub/{user_id}")
+@fastapi_app.get("/sub/{user_id}", response_class=PlainTextResponse)  # <--- ИЗМЕНЕНИЕ ЗДЕСЬ
 async def get_subscription(user_id: int):
     active, _ = is_subscription_active(user_id)
     if not active:
@@ -329,7 +330,7 @@ async def get_subscription(user_id: int):
     sub_base64 = generate_subscription_file(user_id)
     if sub_base64 is None:
         raise HTTPException(status_code=404, detail="Subscription not found")
-    return sub_base64
+    return sub_base64  # Теперь вернётся как чистый текст, без кавычек
 
 # ================== ЗАПУСК ОБОИХ СЕРВИСОВ ==================
 async def run_bot():
